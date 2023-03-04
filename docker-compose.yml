@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  web-app:
+    image: ${APP_IMAGE}:${APP_TAG}
+    container_name: web-app
+    restart: unless-stopped
+    networks:
+      - proxy
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    restart: unless-stopped
+    volumes:
+      - ./data/nginx:/etc/nginx/conf.d/
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - proxy
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  certbot-renew:
+    image: certbot/certbot
+    container_name: certbot-renew
+    restart: unless-stopped
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    networks:
+      - proxy
+    command: certonly --reinstall --webroot --webroot-path=/var/www/certbot --email ${EMAIL} --agree-tos --no-eff-email -d ${DOMAIN}
+
+networks:
+  proxy:
+    driver: bridge
